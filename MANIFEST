@@ -1,0 +1,7 @@
+Build.PL
+lib/Test/HexString.pm
+MANIFEST			This list of files
+t/00use.t
+t/01test.t
+Makefile.PL
+META.yml
