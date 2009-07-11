@@ -1,13 +1,14 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2008 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2008,2009 -- leonerd@leonerd.org.uk
 
 package Test::HexString;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use strict;
+use warnings;
 use base qw( Test::Builder::Module );
 
 our $CLASS = __PACKAGE__;
@@ -65,18 +66,30 @@ other byte is rendered as C<.>:
 Only the first differing line is printed; because otherwise it may result in a
 long output because of misaligned bytes.
 
+If STDOUT is a terminal, then different bytes are printed in bold for
+visibility.
+
 =cut
+
+sub _bold
+{
+   my ( $str, $bold ) = @_;
+   return $str unless -t STDOUT;
+   return $bold ? "\e[1m$str\e[m" : $str;
+}
 
 sub _hexline
 {
-   my ( $bytes ) = @_;
+   my ( $bytes, $boldmap ) = @_;
+
+   my @b = split( m//, $bytes );
 
    my $ret = "| ";
-   $ret .= sprintf( "%02x ", $_ ) for unpack( "C0C*", $bytes );
-   $ret .= ".. " x ( $BYTES_PER_BLOCK - length $bytes );
+   $ret .= _bold(sprintf( "%02x ", ord $b[$_] ), $boldmap->[$_] ) for 0 .. $#b;
+   $ret .= ".. " x ( $BYTES_PER_BLOCK - @b );
    $ret .= "|";
-   $ret .= $_ =~ /[\x20-\x7e]/ ? "$_" : "." for split( m//, $bytes );
-   $ret .= " " x ( $BYTES_PER_BLOCK - length $bytes );
+   $ret .= _bold($b[$_] =~ /[\x20-\x7e]/ ? $b[$_] : ".", $boldmap->[$_] ) for 0 .. $#b;
+   $ret .= " " x ( $BYTES_PER_BLOCK - @b );
    $ret .= "|";
 
    return $ret;
@@ -115,10 +128,13 @@ sub is_hexstr($$;$)
          my $e = substr( $expected, $offs, $BYTES_PER_BLOCK );
          next if $g eq $e;
 
+         my @bold = map { $_ < length $g and $_ < length $e and substr( $g, $_, 1 ) ne substr( $e, $_, 1 ) }
+                    ( 0 .. $BYTES_PER_BLOCK-1 );
+
          $tb->diag( sprintf( "  at bytes %#x-%#x (%d-%d)\n",
             $offs, $offs+$BYTES_PER_BLOCK-1, $offs, $offs+$BYTES_PER_BLOCK-1 ) .
-            "  got: " . _hexline( $g ) . "\n" . 
-            "  exp: " . _hexline( $e )
+            "  got: " . _hexline( $g, \@bold ) . "\n" . 
+            "  exp: " . _hexline( $e, \@bold )
          );
 
          last;
@@ -135,4 +151,4 @@ __END__
 
 =head1 AUTHOR
 
-Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>
+Paul Evans <leonerd@leonerd.org.uk>
